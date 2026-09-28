@@ -9,11 +9,9 @@
 ## Table of Contents
 
 1. [Data Serialization](#1-data-serialization)
-2. [Multiprocessing — First Steps](#2-multiprocessing--first-steps)
-3. [Multithreading — First Steps](#3-multithreading--first-steps)
-4. [Processes vs Threads and the Global Interpreter Lock](#4-processes-vs-threads-and-the-global-interpreter-lock)
-5. [Getting Started with Parallel Computing](#5-getting-started-with-parallel-computing)
-6. [Performance Evaluation of Parallel Programs](#6-performance-evaluation-of-parallel-programs)
+2. [Threads and Processes — Concurrency Fundamentals](#2-threads-and-processes--concurrency-fundamentals)
+3. [Getting Started with Parallel Computing](#3-getting-started-with-parallel-computing)
+4. [Parallel Performance — Pool, Speedup & Amdahl's Law](#4-parallel-performance--pool-speedup--amdahls-law)
 
 ---
 
@@ -138,118 +136,7 @@ Understanding this saves hours of debugging "can't pickle" errors later.
 
 ---
 
-## 2. Multiprocessing — First Steps
-
-### What is a Process?
-
-A **process** is an independent instance of a running program. Each process has:
-
-- Its **own memory space** (heap, stack, global variables)
-- Its **own Python interpreter** (including its own GIL — more on this later)
-- A unique **Process ID (PID)** assigned by the operating system
-
-```
-  ┌─────────────────────┐    ┌─────────────────────┐
-  │   Process A (PID 1) │    │   Process B (PID 2) │
-  │                     │    │                     │
-  │  ┌───────────────┐  │    │  ┌───────────────┐  │
-  │  │ Python interp │  │    │  │ Python interp │  │
-  │  │ + GIL         │  │    │  │ + GIL         │  │
-  │  └───────────────┘  │    │  └───────────────┘  │
-  │  ┌───────────────┐  │    │  ┌───────────────┐  │
-  │  │ Own memory    │  │    │  │ Own memory    │  │
-  │  │ (heap, stack) │  │    │  │ (heap, stack) │  │
-  │  └───────────────┘  │    │  └───────────────┘  │
-  └─────────────────────┘    └─────────────────────┘
-         Completely isolated — no shared state
-```
-
-### The `multiprocessing` Module
-
-Python's `multiprocessing` module lets you spawn new processes, similar to
-`threading` but using **processes instead of threads**. Because each process
-has its own Python interpreter, processes can run truly in parallel on
-multi-core CPUs — they are not limited by the GIL.
-
-### Creating a Process
-
-```python
-import multiprocessing
-
-def worker(name):
-    print(f"Hello from {name}, PID = {os.getpid()}")
-
-p = multiprocessing.Process(target=worker, args=("Worker-1",))
-p.start()   # launch the process
-p.join()    # wait for it to finish
-```
-
-Key methods:
-
-| Method      | What it does                              |
-|-------------|-------------------------------------------|
-| `start()`   | Fork/spawn a new process and begin running |
-| `join()`    | Block until the process terminates         |
-| `is_alive()`| Check if the process is still running      |
-
-### Pool and Map — Data Parallelism Made Simple
-
-When you have a **list of inputs** and want to apply the **same function** to
-each one, `multiprocessing.Pool` is the easiest approach:
-
-```python
-from multiprocessing import Pool
-
-def square(x):
-    return x * x
-
-with Pool(processes=4) as pool:
-    results = pool.map(square, [1, 2, 3, 4, 5])
-# results = [1, 4, 9, 16, 25]
-```
-
-How `Pool.map()` works internally:
-
-```
-  Input list:     [a, b, c, d, e, f, g, h]
-                         │
-                    pool.map(func, inputs)
-                         │
-          ┌──────────────┼──────────────┐
-          ▼              ▼              ▼
-     Worker-0       Worker-1       Worker-2
-    func(a)         func(c)        func(e)
-    func(b)         func(d)        func(f)
-      ...             ...         func(g)
-                                  func(h)
-          │              │              │
-          └──────┬───────┘──────────────┘
-                 ▼
-  Results:  [func(a), func(b), ..., func(h)]   ← same order as input
-```
-
-The pool automatically:
-1. Creates N worker processes
-2. Distributes chunks of the input to workers
-3. Collects and **orders** the results
-4. Returns them as a list in the **same order** as the input
-
----
-
-### 🖥️ Demo Time
-
-> **Now, let's see these theoretical topics in action.**
->
-> - [`03_simple_multiprocessing.py`](./demo/03_simple_multiprocessing.py) —
->   Spawn two processes computing squares and cubes concurrently; observe
->   different PIDs and parallel execution time.
-> - [`04_multiprocessing_pool_map.py`](./demo/04_multiprocessing_pool_map.py) —
->   Use `Pool.map()` to count primes in parallel; compare sequential vs
->   parallel runtimes and observe real speedup.
-
----
-
-## 3. Multithreading — First Steps
+## 2. Threads and Processes — Concurrency Fundamentals
 
 ### What is a Thread?
 
@@ -275,6 +162,43 @@ write the same variables, lists, and dictionaries directly.
   └──────────────────────────────────────┘
 ```
 
+Key observations:
+
+- All threads share the **same PID** (Process ID).
+- Each thread has a unique **TID** (Thread Identifier) — `threading.get_ident()`.
+- Threads can directly append to a shared list, modify a shared dict, etc.
+
+---
+
+### What is a Process?
+
+A **process** is an independent instance of a running program. Each process has:
+
+- Its **own memory space** (heap, stack, global variables)
+- Its **own Python interpreter** (including its own GIL — more on this soon)
+- A unique **Process ID (PID)** assigned by the operating system
+
+```
+  ┌─────────────────────┐    ┌─────────────────────┐
+  │   Process A (PID 1) │    │   Process B (PID 2) │
+  │                     │    │                     │
+  │  ┌───────────────┐  │    │  ┌───────────────┐  │
+  │  │ Python interp │  │    │  │ Python interp │  │
+  │  │ + GIL         │  │    │  │ + GIL         │  │
+  │  └───────────────┘  │    │  └───────────────┘  │
+  │  ┌───────────────┐  │    │  ┌───────────────┐  │
+  │  │ Own memory    │  │    │  │ Own memory    │  │
+  │  │ (heap, stack) │  │    │  │ (heap, stack) │  │
+  │  └───────────────┘  │    │  └───────────────┘  │
+  └─────────────────────┘    └─────────────────────┘
+         Completely isolated — no shared state
+```
+
+If a child process modifies a global variable, **the parent never sees the
+change** — the child was working on its own private copy all along.
+
+---
+
 ### Threads vs Processes — Key Differences
 
 | Property         | Thread                    | Process                   |
@@ -285,172 +209,62 @@ write the same variables, lists, and dictionaries directly.
 | GIL impact       | Contend for one GIL        | Each has its own GIL       |
 | Crash isolation  | One crash kills all threads | One crash ≠ other crashes  |
 
-### The `threading` Module
-
-```python
-import threading
-
-def greet(name):
-    print(f"Hello from {name}, TID = {threading.get_ident()}")
-
-t = threading.Thread(target=greet, args=("Worker",))
-t.start()
-t.join()
-```
-
-Notice that all threads share the **same PID** (they're in the same process)
-but each has a unique **thread identifier** (`threading.get_ident()`).
-
-### Communicating Between Threads
-
-Since threads share memory, the simplest communication is a **shared variable**:
-
-```python
-results = []   # shared list
-
-def compute(n):
-    results.append(n * n)   # all threads write to the same list
-
-# Launch threads ...
-# After join, `results` contains outputs from all threads
-```
-
-But for **producer–consumer** patterns and **bounded buffers**, use
-`queue.Queue` — it's **thread-safe** (internally locked), so you don't need
-to manage locks yourself:
-
-```python
-import queue
-
-q = queue.Queue()
-q.put(item)       # producer adds work
-item = q.get()    # consumer retrieves work (blocks if empty)
-```
-
-### The Worker Pool Pattern
-
-A common pattern is to have a fixed number of worker threads pulling tasks
-from a shared queue:
-
-```
-              ┌───────────┐
-              │   Queue   │ ← tasks are added here
-              └─────┬─────┘
-        ┌───────────┼───────────┐
-        ▼           ▼           ▼
-   Worker-0    Worker-1    Worker-2
-   (thread)    (thread)    (thread)
-```
-
-Each worker runs an infinite loop:
-1. Pull a task from the queue (blocks if empty)
-2. Process the task
-3. Repeat
-
-To shut down workers gracefully, send a **sentinel value** (e.g., `None`)
-for each worker, or use `threading.Event` to signal cooperative shutdown.
-
-### Graceful Shutdown with `threading.Event`
-
-`threading.Event` provides a simple boolean flag that threads can check:
-
-```python
-stop = threading.Event()
-
-def worker():
-    while not stop.is_set():     # run until signaled
-        do_work()
-        stop.wait(timeout=1.0)   # sleep, but wake up early if stop is set
-
-# Later, from the main thread:
-stop.set()   # signal the worker to stop
-```
-
-This is much better than a bare `while True` + `time.sleep()` loop because
-the thread responds **immediately** to the stop signal instead of sleeping
-through the full interval.
-
 ---
 
-### 🖥️ Demo Time
+### The Global Interpreter Lock (GIL)
 
-> **Now, let's see these theoretical topics in action.**
->
-> - [`05_basic_multithreading.py`](./demo/05_basic_multithreading.py) —
->   Create threads with shared PIDs and unique TIDs; share a list across
->   threads; build a worker pool pattern with a Queue.
-> - [`06_thread_communication_stoppable.py`](./demo/06_thread_communication_stoppable.py) —
->   Producer–consumer communication with `queue.Queue` and graceful shutdown
->   of a long-running sensor thread using `threading.Event`.
-
----
-
-## 4. Processes vs Threads and the Global Interpreter Lock
-
-### What is the GIL?
-
-The **Global Interpreter Lock (GIL)** is a mutex (mutual exclusion lock) built
-into CPython (the standard Python implementation). It allows **only one thread**
-to execute Python bytecode at any given time, even on a multi-core machine.
+The **GIL** is a mutex built into CPython (the standard Python implementation).
+It allows **only one thread** to execute Python bytecode at any given time,
+even on a multi-core machine.
 
 ```
-  Without GIL (what you'd expect):
-  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
-  │ Thread 1│ │ Thread 2│ │ Thread 3│ │ Thread 4│    ← 4 threads
-  │ Core 1  │ │ Core 2  │ │ Core 3  │ │ Core 4  │    ← 4 cores
-  │ RUNNING │ │ RUNNING │ │ RUNNING │ │ RUNNING │    ← all parallel ✓
-  └─────────┘ └─────────┘ └─────────┘ └─────────┘
+  Without GIL (what you'd expect):         With GIL (reality in CPython):
 
-  With GIL (reality in CPython):
-  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
-  │ Thread 1│ │ Thread 2│ │ Thread 3│ │ Thread 4│    ← 4 threads
-  │ Core 1  │ │  WAIT   │ │  WAIT   │ │  WAIT   │    ← only 1 runs!
-  │ RUNNING │ │  (GIL)  │ │  (GIL)  │ │  (GIL)  │
-  └─────────┘ └─────────┘ └─────────┘ └─────────┘
+  Thread 1 ████ RUNNING  (Core 1)          Thread 1 ████ RUNNING  (Core 1)
+  Thread 2 ████ RUNNING  (Core 2)          Thread 2 ░░░░ WAITING  (GIL)
+  Thread 3 ████ RUNNING  (Core 3)          Thread 3 ░░░░ WAITING  (GIL)
+  Thread 4 ████ RUNNING  (Core 4)          Thread 4 ░░░░ WAITING  (GIL)
 ```
 
-### Why Does the GIL Exist?
+#### Why Does the GIL Exist?
 
 1. **Memory management safety** — CPython uses reference counting for garbage
    collection. Without the GIL, every `Py_INCREF` / `Py_DECREF` would need
    its own lock, which would be slower overall.
-2. **C extension compatibility** — Many C extensions assume they have exclusive
-   access to Python objects. The GIL guarantees this.
-3. **Simplicity** — A single global lock is simpler to implement and reason
-   about than fine-grained locking.
+2. **C extension compatibility** — Many C extensions assume exclusive access
+   to Python objects.
+3. **Simplicity** — A single global lock is simpler than fine-grained locking.
 
-### The GIL's Impact: CPU-Bound vs I/O-Bound
+#### The GIL's Impact: CPU-Bound vs I/O-Bound
 
 The GIL's impact depends entirely on the **type of work** your threads do:
 
-#### CPU-Bound Tasks (computation-heavy)
+**CPU-Bound Tasks (computation-heavy):**
 
 ```
   Thread 1:  [████ compute ████][wait][████ compute ████][wait]...
   Thread 2:  [wait][████ compute ████][wait][████ compute ████]...
                     ↑
-              Only ONE thread computes at a time!
-              Threads ≈ Sequential (no speedup)
+              Only ONE computes at a time → threads ≈ sequential
 ```
 
 - **Threads:** No speedup. The GIL serializes execution.
 - **Processes:** Real speedup! Each process has its own GIL.
 
-#### I/O-Bound Tasks (network, disk, sleep)
+**I/O-Bound Tasks (network, disk, sleep):**
 
 ```
   Thread 1:  [request]...........[response][process]
   Thread 2:       [request]...........[response][process]
   Thread 3:            [request]...........[response][process]
                   ↑
-            GIL is RELEASED during I/O waits!
-            Threads overlap I/O perfectly (speedup ✓)
+            GIL is RELEASED during I/O waits → real speedup ✓
 ```
 
-- **Threads:** Good speedup! The GIL is **released** while waiting for I/O.
-- **Processes:** Also work, but threads are cheaper (less memory, faster to create).
+- **Threads:** Great speedup! The GIL is **released** during I/O waits.
+- **Processes:** Also work, but threads are cheaper and simpler.
 
-### Summary: When to Use What
+**Summary: When to Use What**
 
 | Workload Type | Use Threads?      | Use Processes?    |
 |---------------|-------------------|-------------------|
@@ -460,12 +274,13 @@ The GIL's impact depends entirely on the **type of work** your threads do:
 
 ---
 
-### Sharing State: The Core Trade-off
+### Race Conditions and Locks
 
-#### Threads: Shared Memory (Fast, but Risky)
+#### The Problem: Race Conditions
 
-Because threads share the same memory, one thread can directly read and modify
-variables that another thread is using. This leads to **race conditions**:
+Because threads share memory, one thread can modify a variable that another
+thread is reading at the same time. When the outcome depends on the
+**timing of thread execution**, you have a **race condition**:
 
 ```python
 counter = 0
@@ -481,7 +296,9 @@ def increment():
 If two threads run `increment()`, the final value of `counter` is
 **unpredictable** — it could be anything between 100,000 and 200,000.
 
-**Solution: Use a Lock**
+#### The Fix: `threading.Lock`
+
+A Lock ensures only **one thread** can enter the protected section at a time:
 
 ```python
 lock = threading.Lock()
@@ -490,35 +307,34 @@ def safe_increment():
     global counter
     for _ in range(100_000):
         with lock:          # only one thread enters this block at a time
-            counter += 1
+            counter += 1    # now it's safe
 ```
 
-#### Processes: Isolated Memory (Safe, but Requires Effort)
+---
 
-Each process gets a **complete copy** of the program's memory. If a child
-process modifies a global variable, **the parent never sees the change**:
+### Sharing State Between Processes
+
+Since processes have **isolated memory**, you need explicit mechanisms to
+share data:
+
+| Mechanism                     | Use Case                                      |
+|-------------------------------|-----------------------------------------------|
+| `multiprocessing.Value`       | A single shared variable (int, float, etc.)   |
+| `multiprocessing.Array`       | A shared array of fixed type                  |
+| `multiprocessing.Queue`       | Message passing between processes             |
+| `multiprocessing.Pipe`        | Two-way communication channel                 |
+| `multiprocessing.Manager`     | Shared dicts, lists (slower, via proxy)        |
+
+Example with `multiprocessing.Value`:
 
 ```python
-x = 0
+shared_counter = multiprocessing.Value('i', 0)   # 'i' = int, initial = 0
 
-def child():
-    global x
-    x = 42          # modifies the child's COPY
-    print(x)        # prints 42
-
-p = Process(target=child)
-p.start(); p.join()
-print(x)            # still 0 in the parent!
+def increment(counter, n):
+    for _ in range(n):
+        with counter.get_lock():    # built-in lock
+            counter.value += 1
 ```
-
-If you truly need shared state between processes, use:
-
-- `multiprocessing.Value` — a single shared variable (int, float, etc.)
-- `multiprocessing.Array` — a shared array
-- `multiprocessing.Manager` — shared dicts, lists (slower, via a manager process)
-
-All of these require **explicit locking** to avoid race conditions, just like
-threads.
 
 ---
 
@@ -526,17 +342,16 @@ threads.
 
 > **Now, let's see these theoretical topics in action.**
 >
-> - [`07_gil_cpu_vs_io_benchmark.py`](./demo/07_gil_cpu_vs_io_benchmark.py) —
->   Run the same workload with sequential, threaded, and multiprocess execution
->   for both CPU-bound and I/O-bound tasks. Observe the GIL's effect firsthand.
-> - [`08_sharing_state_threads_vs_processes.py`](./demo/08_sharing_state_threads_vs_processes.py) —
->   See a race condition happen live (threads without Lock), then fix it with
->   Lock. Then see process memory isolation, and finally use
->   `multiprocessing.Value` for explicit sharing.
+> - [`03_threads_vs_processes.py`](./demo/03_threads_vs_processes.py) —
+>   Four progressive demos in one file:
+>   1. `demo_threads_basics()` — Threads share PID and memory
+>   2. `demo_processes_basics()` — Processes have isolated memory; fix with `Value`
+>   3. `demo_gil()` — CPU-bound vs I/O-bound benchmark (sequential, threaded, multiprocess)
+>   4. `demo_race_condition()` — Race condition live, then fixed with `Lock`
 
 ---
 
-## 5. Getting Started with Parallel Computing
+## 3. Getting Started with Parallel Computing
 
 ### Why Parallel Computing?
 
@@ -555,6 +370,8 @@ heat). Instead, hardware advances now come as **more cores**, not faster cores:
 ```
 
 To exploit modern hardware, software **must** run in parallel.
+
+---
 
 ### The Parallel Computing Memory Architecture
 
@@ -577,15 +394,15 @@ they handle **instruction streams** and **data streams**:
 
 #### SISD — Single Instruction, Single Data
 
-- Traditional **sequential** (von Neumann) computer
-- One instruction operates on one piece of data at a time
-- Example: a simple single-core CPU executing a program line by line
+- Traditional **sequential** (von Neumann) computer.
+- One instruction operates on one piece of data at a time.
+- Example: a simple single-core CPU executing a program line by line.
 
 #### SIMD — Single Instruction, Multiple Data
 
-- **One instruction** is applied to **many data elements** simultaneously
-- Example: GPU cores, Intel SSE/AVX vector instructions
-- Ideal for: image processing, matrix operations, signal processing
+- **One instruction** is applied to **many data elements** simultaneously.
+- Example: GPU cores, Intel SSE/AVX vector instructions.
+- Ideal for: image processing, matrix operations, signal processing.
 
 ```
   SIMD Example: Add two arrays
@@ -599,16 +416,16 @@ they handle **instruction streams** and **data streams**:
 
 #### MISD — Multiple Instruction, Single Data
 
-- **Multiple instructions** operate on the **same data stream**
+- **Multiple instructions** operate on the **same data stream**.
 - Rare in practice; used in fault-tolerant systems (e.g., redundant flight
-  computers processing the same sensor data through different algorithms)
+  computers processing the same sensor data through different algorithms).
 
 #### MIMD — Multiple Instruction, Multiple Data
 
 - **Multiple processors** execute **different instructions** on **different
-  data** simultaneously
-- This is the **most common** parallel architecture today
-- Examples: multi-core CPUs, clusters of workstations, cloud computing
+  data** simultaneously.
+- This is the **most common** parallel architecture today.
+- Examples: multi-core CPUs, clusters of workstations, cloud computing.
 
 ---
 
@@ -637,9 +454,9 @@ interconnect:
                └─────────────┘
 ```
 
-- **Pros:** Easy to program (just read/write shared variables)
+- **Pros:** Easy to program (just read/write shared variables).
 - **Cons:** Bus contention, cache coherency overhead, doesn't scale beyond
-  ~64–128 cores
+  ~64–128 cores.
 
 #### Distributed Memory
 
@@ -664,8 +481,8 @@ Each processor has its **own private memory**. Processors communicate by
   └──────────────┘        └──────────────┘
 ```
 
-- **Pros:** Scales to thousands of nodes, no cache coherency issues
-- **Cons:** Programmer must explicitly manage all data movement (MPI)
+- **Pros:** Scales to thousands of nodes, no cache coherency issues.
+- **Cons:** Programmer must explicitly manage all data movement (MPI).
 
 #### Hybrid: Clusters of Multi-Core Nodes
 
@@ -714,7 +531,7 @@ Break the problem into **small, independent tasks** that can run concurrently.
 
 ```
   Problem: Process 1000 images
-  
+
   Decomposition:
     Task 0: process image[0]
     Task 1: process image[1]
@@ -742,8 +559,8 @@ one-image tasks has more overhead than sending 10 hundred-image tasks.
 
 Assign chunks to **physical processors**. Strategies include:
 
-- **Static mapping:** Pre-assign chunks (simple, good for uniform tasks)
-- **Dynamic mapping:** Workers pull tasks from a queue (good for non-uniform tasks)
+- **Static mapping:** Pre-assign chunks (simple, good for uniform tasks).
+- **Dynamic mapping:** Workers pull tasks from a queue (good for non-uniform tasks).
 
 Dynamic mapping variants:
 
@@ -755,7 +572,51 @@ Dynamic mapping variants:
 
 ---
 
-## 6. Performance Evaluation of Parallel Programs
+## 4. Parallel Performance — Pool, Speedup & Amdahl's Law
+
+### Data Parallelism with `Pool.map()`
+
+When you have a **list of inputs** and want to apply the **same function** to
+each one, `multiprocessing.Pool` is the easiest approach:
+
+```python
+from multiprocessing import Pool
+
+def square(x):
+    return x * x
+
+with Pool(processes=4) as pool:
+    results = pool.map(square, [1, 2, 3, 4, 5])
+# results = [1, 4, 9, 16, 25]
+```
+
+How `Pool.map()` works internally:
+
+```
+  Input list:     [a, b, c, d, e, f, g, h]
+                         │
+                    pool.map(func, inputs)
+                         │
+          ┌──────────────┼──────────────┐
+          ▼              ▼              ▼
+     Worker-0       Worker-1       Worker-2
+    func(a)         func(c)        func(e)
+    func(b)         func(d)        func(f)
+      ...             ...         func(g)
+                                  func(h)
+          │              │              │
+          └──────┬───────┘──────────────┘
+                 ▼
+  Results:  [func(a), func(b), ..., func(h)]   ← same order as input
+```
+
+The pool automatically:
+1. Creates N worker processes.
+2. Distributes chunks of the input to workers.
+3. Collects and **orders** the results.
+4. Returns them as a list in the **same order** as the input.
+
+---
 
 ### How Do We Know If Our Parallel Program Is Good?
 
@@ -763,7 +624,7 @@ Three key metrics tell us how well we parallelized:
 
 ---
 
-### 6.1 Speedup
+### 4.1 Speedup
 
 **Speedup** measures how much faster the parallel version is compared to
 the sequential version:
@@ -783,7 +644,7 @@ where *N* is the number of processors.
 
 ---
 
-### 6.2 Efficiency
+### 4.2 Efficiency
 
 **Efficiency** measures how well we're utilizing the processors:
 
@@ -799,7 +660,7 @@ $$
 
 ---
 
-### 6.3 Amdahl's Law
+### 4.3 Amdahl's Law
 
 **Amdahl's Law** gives the **theoretical maximum speedup** for a program
 with a serial (non-parallelizable) fraction *S*:
@@ -850,7 +711,7 @@ portions of code matters so much.
 
 ---
 
-### 6.4 Gustafson's Law — A More Optimistic View
+### 4.4 Gustafson's Law — A More Optimistic View
 
 Amdahl's Law assumes a **fixed problem size**. But in practice, when we
 get more processors, we often **increase the problem size** to get
@@ -897,10 +758,11 @@ Here's how Python's tools map to the concepts we've learned:
 
 > **Now, let's see these theoretical topics in action.**
 >
-> - [`09_performance_speedup_amdahl.py`](./demo/09_performance_speedup_amdahl.py) —
->   Measure sequential vs parallel runtimes across 1, 2, 4, … N cores.
->   Compute actual Speedup and Efficiency, and compare against
->   theoretical Amdahl's Law and Gustafson's Law predictions.
+> - [`04_parallel_performance.py`](./demo/04_parallel_performance.py) —
+>   Three progressive demos in one file:
+>   1. `demo_pool_map()` — Pool.map() sequential vs parallel with real speedup
+>   2. `demo_speedup_efficiency()` — Measure Speedup and Efficiency across 1, 2, 4, … N cores
+>   3. `demo_amdahl_gustafson()` — Compare actual speedup against Amdahl's Law and Gustafson's Law
 
 ---
 
@@ -909,14 +771,23 @@ Here's how Python's tools map to the concepts we've learned:
 | What We Learned | Key Takeaway |
 |-----------------|--------------|
 | **Serialization** | JSON (cross-language, text) vs Pickle (Python-only, binary, supports all types). Pickle is used internally by `multiprocessing`. |
-| **Processes** | Independent memory, own GIL → true parallelism for CPU-bound work |
 | **Threads** | Shared memory, one GIL → great for I/O-bound work, limited for CPU-bound |
+| **Processes** | Independent memory, own GIL → true parallelism for CPU-bound work |
 | **GIL** | Only one thread runs Python bytecode at a time. Use processes to bypass it. |
 | **Race conditions** | Shared data + concurrent writes = bugs. Use Locks. |
 | **Flynn's Taxonomy** | SISD, SIMD, MISD, MIMD — MIMD is the most common today |
 | **Memory models** | Shared memory (threads, multiprocessing) vs Distributed memory (MPI) |
 | **Foster's methodology** | Decompose → Assign → Agglomerate → Map |
 | **Performance metrics** | Speedup, Efficiency, Amdahl's Law (pessimistic), Gustafson's Law (optimistic) |
+
+### Demo Programs Quick Reference
+
+| File | Functions (uncomment progressively) |
+|------|--------------------------------------|
+| [`01_json_serialization.py`](./demo/01_json_serialization.py) | `demo_basic_serialization` → `demo_list_serialization` → `demo_file_io` → `demo_limitations` |
+| [`02_pickle_serialization.py`](./demo/02_pickle_serialization.py) | `demo_pickle_basic_types` → `demo_pickle_custom_objects` → `demo_pickle_file_io` → `demo_pickle_vs_json` |
+| [`03_threads_vs_processes.py`](./demo/03_threads_vs_processes.py) | `demo_threads_basics` → `demo_processes_basics` → `demo_gil` → `demo_race_condition` |
+| [`04_parallel_performance.py`](./demo/04_parallel_performance.py) | `demo_pool_map` → `demo_speedup_efficiency` → `demo_amdahl_gustafson` |
 
 ### What's Coming Tomorrow (Day 2)
 

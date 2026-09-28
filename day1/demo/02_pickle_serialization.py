@@ -61,6 +61,7 @@ def demo_pickle_basic_types():
     print("1. Pickle basic types:")
     print(f"   Original type : {type(data)}")
     print(f"   Pickled type  : {type(pickled_bytes)}")
+    print(f"   Pickled bytes : {pickled_bytes}")
     print(f"   Pickled size  : {len(pickled_bytes)} bytes")
     print()
 
@@ -150,8 +151,8 @@ def demo_pickle_vs_json():
 # ---------------------------------------------------------------------------
 
 def main():
-    demo_pickle_basic_types()
-    # demo_pickle_custom_objects()
+    # demo_pickle_basic_types()
+    demo_pickle_custom_objects()
     # demo_pickle_file_io()
     # demo_pickle_vs_json()
 

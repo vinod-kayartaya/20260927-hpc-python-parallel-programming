@@ -29,7 +29,7 @@ def demo_basic_serialization():
     student = {
         "name": "Alice",
         "age": 25,
-        "courses": ["HPC", "Parallel Programming", "Python"],
+        "courses": ("HPC", "Parallel Programming", "Python"),
         "graduated": False,
         "gpa": 8.75,
     }
@@ -46,6 +46,8 @@ def demo_basic_serialization():
     print(f"   Name    : {restored['name']}")
     print(f"   Courses : {restored['courses']}")
     print(f"   Type    : {type(restored)}")
+    print(f"   Original: {student}")
+    print(f"   Restored: {restored}")
 
 
 # ---------------------------------------------------------------------------
@@ -82,19 +84,20 @@ def demo_file_io():
     # Write to file
     with open(output_file, "w") as f:
         json.dump(records, f, indent=2)
+
     print(f"4. Written {len(records)} records to '{output_file}'")
 
     # Read from file
     with open(output_file, "r") as f:
         loaded_records = json.load(f)
 
-    print(f"   Read back {len(loaded_records)} records from file:")
+    print(f"Read back {len(loaded_records)} records from file:")
     for rec in loaded_records:
-        print(f"     Task: {rec['task']:20s}  Time: {rec['time_sec']}s")
+        print(f"Task: {rec['task']:20s}  Time: {rec['time_sec']}s")
 
     # Clean up
     os.remove(output_file)
-    print(f"   (Cleaned up '{output_file}')")
+    print(f"(Cleaned up '{output_file}')")
 
 
 # ---------------------------------------------------------------------------
