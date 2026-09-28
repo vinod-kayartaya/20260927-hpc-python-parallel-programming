@@ -1,0 +1,18 @@
+# Day 5: GPU Programming with Python
+#
+# Prerequisite: NumPy array foundation
+numpy>=1.24.0
+
+# 1. Numba (JIT compiler supporting both multi-core CPU and NVIDIA CUDA GPUs)
+#    Can be installed on any platform:
+numba>=0.59.0
+
+# 2. PyCUDA (Requires NVIDIA GPU and NVIDIA CUDA Toolkit installed)
+#    See: https://wiki.tiker.net/PyCuda/Installation/
+pycuda>=2024.1
+
+# 3. PyOpenCL (Cross-platform accelerator framework for NVIDIA, AMD, Intel, Apple Silicon)
+#    Requires OpenCL headers and drivers on the system:
+#      Ubuntu : sudo apt install ocl-icd-opencl-dev opencl-headers
+#      macOS  : OpenCL runtime is built into macOS
+pyopencl>=2024.1

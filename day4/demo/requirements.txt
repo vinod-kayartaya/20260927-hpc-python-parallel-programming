@@ -1,0 +1,17 @@
+# Day 4: Distributed Python Computing
+#
+# Celery distributed task queue & Redis broker client
+# (Requires a running Redis server: brew install redis / sudo apt install redis-server)
+celery>=5.3.6
+redis>=5.0.1
+
+# SCOOP (Scalable Concurrent Operations in Python)
+scoop>=0.7.2
+pyzmq>=25.1.0
+greenlet>=3.0.0
+
+# Pyro4 (Python Remote Objects)
+Pyro4>=4.82
+
+# RPyC (Remote Python Call)
+rpyc>=5.3.1

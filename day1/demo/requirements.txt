@@ -1,0 +1,3 @@
+# Day 1 Demos: Python Standard Library Only
+# All demos in Day 1 use built-in modules (json, pickle, threading, multiprocessing, os, time).
+# No external pip packages are required.
