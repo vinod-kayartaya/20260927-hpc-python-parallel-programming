@@ -96,13 +96,20 @@ GRID (The entire kernel execution)
 4. **Grid**: A collection of thread blocks launched across the entire GPU chip.
 
 #### Calculating Global Thread Index
-In 1D arrays:
-$$\text{idx} = \text{blockIdx.x} \times \text{blockDim.x} + \text{threadIdx.x}$$
 
-In 2D matrices (images, grids):
-$$\text{col} = \text{blockIdx.x} \times \text{blockDim.x} + \text{threadIdx.x}$$
-$$\text{row} = \text{blockIdx.y} \times \text{blockDim.y} + \text{threadIdx.y}$$
-$$\text{global\_index} = \text{row} \times \text{width} + \text{col}$$
+Each thread calculates its unique position in the dataset using built-in CUDA variables:
+
+**In 1D arrays:**
+```c
+int idx = blockIdx.x * blockDim.x + threadIdx.x;
+```
+
+**In 2D matrices (images, grids):**
+```c
+int col = blockIdx.x * blockDim.x + threadIdx.x;   // X dimension -> Column
+int row = blockIdx.y * blockDim.y + threadIdx.y;   // Y dimension -> Row
+int global_index = row * width + col;             // Flattened 1D array index
+```
 
 ---
 
