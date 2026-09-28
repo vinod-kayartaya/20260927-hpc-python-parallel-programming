@@ -34,18 +34,19 @@ Modern CPUs have 4 to 128 large, powerful cores optimized for **low-latency sequ
 
 In contrast, GPUs (Graphics Processing Units) are massively parallel processors with **thousands of small, energy-efficient ALUs (Arithmetic Logic Units)** designed for **high-throughput compute**:
 
-```
-        CPU (Low Latency)                     GPU (High Throughput)
-┌─────────────────────────────────┐   ┌─────────────────────────────────┐
-│  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐│   │ ┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐│
-│  │Core0│ │Core1│ │Core2│ │Core3││   │ └─┘└─┘└─┘└─┘└─┘└─┘└─┘└─┘└─┘└─┘└─┘└─┘│
-│  └─────┘ └─────┘ └─────┘ └─────┘│   │ ┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐│
-│ ┌─────────────────────────────┐ │   │ └─┘└─┘└─┘└─┘└─┘└─┘└─┘└─┘└─┘└─┘└─┘└─┘│
-│ │      L3 Cache Memory        │ │   │  Thousands of lightweight ALUs   │
-│ └─────────────────────────────┘ │   │ ┌─────────────────────────────┐ │
-│ ┌──────────┐   ┌──────────────┐ │   │ │   L2 Cache & High-Bandwidth │ │
-│ │ Control  │   │  DRAM (RAM)  │ │   │ │   VRAM (GDDR6 / HBM3)       │ │
-└─┴──────────┴───┴──────────────┴─┘   └─┴─────────────────────────────┴─┘
+```text
+          CPU (Low Latency)                         GPU (High Throughput)
+┌─────────────────────────────────────┐   ┌─────────────────────────────────────┐
+│ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ │   │ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ │
+│ │Core0 │ │Core1 │ │Core2 │ │Core3 │ │   │ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ │
+│ └──────┘ └──────┘ └──────┘ └──────┘ │   │ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ │
+│ ┌─────────────────────────────────┐ │   │ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ │
+│ │         L3 Cache Memory         │ │   │        Thousands of Tiny ALUs       │
+│ └─────────────────────────────────┘ │   │ ┌─────────────────────────────────┐ │
+│ ┌───────────────┐ ┌───────────────┐ │   │ │    L2 Cache & High-Bandwidth    │ │
+│ │ Control Unit  │ │   DRAM (RAM)  │ │   │ │       VRAM (GDDR6 / HBM)        │ │
+│ └───────────────┘ └───────────────┘ │   │ └─────────────────────────────────┘ │
+└─────────────────────────────────────┘   └─────────────────────────────────────┘
 ```
 
 GPUs achieve **10x to 100x speedups** on data-parallel problems such as:
