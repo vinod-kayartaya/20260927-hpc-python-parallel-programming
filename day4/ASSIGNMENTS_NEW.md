@@ -145,16 +145,17 @@ Enter your choice [1-5]:
 
 ### Architecture Overview
 
-```
-┌───────────────────────────┐                     ┌───────────────────────────┐
-│     Client Terminal       │                     │       Server Host         │
-│                           │                     │                           │
-│  [CLI Menu Loop]          │   Remote TCP Call   │ ┌───────────────────────┐ │
-│  choice = 2 (Deposit $50) │ ──────────────────> │ │ BankAccountService    │ │
-│  bank.deposit(50.0)       │                     │ │ balance += 50.0       │ │
-│                           │   Return status     │ └───────────────────────┘ │
-│  "Deposit successful!"    │ <────────────────── │                           │
-└───────────────────────────┘                     └───────────────────────────┘
+```text
+           PYRO4 CLIENT-SERVER RPC ARCHITECTURE
+
+      CLIENT (CLI)                      SERVER
+┌───────────────────────┐       ┌───────────────────────┐
+│    [CLI Menu Loop]    │       │ [BankAccountService]  │
+│                       │  RPC  │                       │
+│ 1. Choice = 2         │ ────> │ balance += 50.0       │
+│ 2. bank.deposit(50.0) │ <──── │ Return new balance    │
+│ 3. Prints: "$1050.00" │       │                       │
+└───────────────────────┘       └───────────────────────┘
 ```
 
 ---
@@ -244,6 +245,21 @@ Enter your choice [1-5]:
    - **Option 4:** Prompts user for a mathematical string (e.g., `"2**32 - 1"` or `"math.sqrt(144)"`), evaluates it on the remote server, and prints the result.
    - **Option 5:** Closes connection with `conn.close()` and exits cleanly.
 
+### Architecture Overview
+
+```text
+            RPYC CLIENT-SERVER RPC ARCHITECTURE
+
+      CLIENT (CLI)                      SERVER
+┌───────────────────────┐       ┌───────────────────────┐
+│    [CLI Menu Loop]    │       │[SystemInspectorServ.] │
+│                       │  RPC  │                       │
+│ 1. Choice = 1         │ ────> │ Read OS, CPU info     │
+│ 2. get_system_info()  │ <──── │ Return info dict      │
+│ 3. Displays dashboard │       │                       │
+└───────────────────────┘       └───────────────────────┘
+```
+
 ---
 
 ## Exercise 4: Distributed Task Processing with Celery
@@ -323,12 +339,19 @@ Define three distinct distributed tasks:
 
 ### Architecture Overview
 
-```
-[Order Client] ──(1. Submit Task)──> [Message Broker (Redis/RabbitMQ)]
-                                                      │
-                                                      │ (2. Consume Task)
-                                                      ▼
-[Client polls AsyncResult] <──(3. Result Backend)── [Celery Worker Pool]
+```text
+           CELERY DISTRIBUTED TASK ARCHITECTURE
+
+  [Order Client] ──(1. Submit Task)──> [Message Broker]
+        │                               (RabbitMQ/Redis)
+        │                                      │
+        │                                      │ (2. Consume)
+        │                                      ▼
+        │                              [Celery Workers]
+        │                                      │
+        │                                      │ (3. Save)
+        ▼                                      ▼
+  [Client Reads] <──(4. Get Result)─── [Result Backend]
 ```
 
 ### Hints & Guidelines
